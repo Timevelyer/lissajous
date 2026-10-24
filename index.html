@@ -1,0 +1,925 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>李萨如图形 · 垂直简谐振动合成</title>
+<meta name="description" content="交互式李萨如图形演示：调整两个垂直简谐振动的整数频率比与初相位差，实时观察合成轨迹。">
+<style>
+  :root{
+    --paper:#EDE7D9;
+    --paper-lift:#F4EFE2;
+    --ink:#1C241F;
+    --ink-soft:#5B6159;
+    --ink-faint:#8B8C80;
+    --blue:#26418F;
+    --pink:#E15272;
+    --rule:rgba(28,36,31,.16);
+    --rule-strong:rgba(28,36,31,.34);
+    --serif:"Source Han Serif SC","Noto Serif SC","Songti SC","STSong","SimSun",serif;
+    --sans:"PingFang SC","Microsoft YaHei","Noto Sans SC",system-ui,sans-serif;
+    --mono:"Cascadia Mono","JetBrains Mono","Consolas","SFMono-Regular",monospace;
+  }
+  *{box-sizing:border-box}
+  html{background:#E5DDCB}
+  body{
+    margin:0;
+    color:var(--ink);
+    font-family:var(--sans);
+    background:
+      radial-gradient(1200px 620px at 50% -12%, rgba(255,252,244,.78), rgba(255,252,244,0) 62%),
+      var(--paper);
+    -webkit-font-smoothing:antialiased;
+  }
+  body::before{
+    content:"";
+    position:fixed; inset:0; z-index:50; pointer-events:none;
+    opacity:.22; mix-blend-mode:multiply;
+    background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.86' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='.34'/%3E%3C/svg%3E");
+  }
+  ::selection{background:rgba(225,82,114,.22)}
+  .page{max-width:1320px;margin:0 auto;padding:34px 44px 64px}
+
+  /* ---------- masthead ---------- */
+  .masthead{
+    display:grid;grid-template-columns:minmax(0,1fr) 330px;gap:64px;align-items:end;
+    padding-bottom:26px;border-bottom:1px solid var(--rule-strong);margin-bottom:34px;
+  }
+  h1{
+    margin:0 0 14px;font-family:var(--serif);font-weight:600;
+    font-size:clamp(44px,5.6vw,70px);line-height:1;letter-spacing:.01em;
+  }
+  .lede{
+    margin:0;max-width:36em;color:var(--ink-soft);
+    font-size:15px;line-height:1.85;letter-spacing:.01em;
+  }
+  .masthead-note{
+    margin:0;padding:2px 0 2px 18px;border-left:2px solid var(--pink);
+    color:var(--ink-soft);font-size:12.5px;line-height:1.9;
+  }
+  .masthead-note b{color:var(--ink);font-weight:600}
+
+  /* ---------- work area ---------- */
+  .work{
+    display:grid;grid-template-columns:minmax(0,1fr) 382px;
+    grid-template-areas:"figure console" "notes console";
+    column-gap:48px;align-items:start;
+  }
+  .figure{
+    grid-area:figure;margin:0;width:100%;max-width:700px;margin-inline:auto;min-width:0;
+  }
+  .stage{
+    position:relative;margin-inline:auto;aspect-ratio:1/1;
+    width:100%;
+    background:var(--paper-lift);
+    border:1px solid var(--rule-strong);
+  }
+  .stage canvas{display:block;width:100%;height:100%}
+  .stage-tools{position:absolute;top:12px;right:12px;display:flex;gap:8px}
+  .icon-btn{
+    width:36px;height:36px;display:grid;place-items:center;cursor:pointer;
+    border:1px solid var(--rule-strong);background:rgba(244,239,226,.88);color:var(--ink);
+    padding:0;transition:background .16s,border-color .16s;
+  }
+  .icon-btn:hover{background:var(--paper-lift);border-color:var(--ink)}
+  .icon-btn svg{width:15px;height:15px;fill:currentColor}
+
+  /* ---------- caption ---------- */
+  .caption{padding-top:13px;border-top:1px solid var(--rule)}
+  .caption-top{display:flex;justify-content:space-between;gap:18px;align-items:baseline;flex-wrap:wrap}
+  .equation{display:flex;flex-wrap:wrap;gap:6px 26px;font-family:var(--mono);font-size:13px;color:var(--ink)}
+  .equation span{white-space:nowrap}
+  .equation b{font-weight:600;color:var(--ink);border-bottom:1px solid rgba(225,82,114,.55);padding-bottom:1px}
+  .type-badge{
+    display:inline-flex;align-items:baseline;gap:8px;
+    font-size:12px;color:var(--ink-soft);white-space:nowrap;
+  }
+  .type-badge::before{content:"图形";font-size:10.5px;color:var(--ink-faint);letter-spacing:.08em}
+  .caption-meta{
+    display:flex;justify-content:space-between;gap:16px;align-items:baseline;
+    margin-top:10px;font-size:11.5px;color:var(--ink-faint);flex-wrap:wrap;
+  }
+  .legend{display:flex;gap:16px;flex-wrap:wrap}
+  .legend span{display:inline-flex;align-items:center;gap:6px}
+  .legend i{width:15px;height:2px;background:var(--c);display:inline-block}
+  .status{font-family:var(--mono);letter-spacing:.01em}
+
+  /* ---------- console ---------- */
+  .console{
+    grid-area:console;border-top:2px solid var(--ink);padding-top:16px;min-width:0;
+  }
+  .group{padding:17px 0;border-bottom:1px solid var(--rule)}
+  .group-head{display:flex;align-items:baseline;justify-content:space-between;gap:14px;margin-bottom:12px}
+  .group-head h2{margin:0;font-size:12.5px;font-weight:600;letter-spacing:.06em;color:var(--ink-soft)}
+  .group-head .hint{font-size:10.5px;color:var(--ink-faint);letter-spacing:.04em}
+  .value{font-family:var(--mono);font-size:15px;color:var(--ink);white-space:nowrap}
+  .value.big{font-size:30px;line-height:1;font-weight:600;letter-spacing:-.02em}
+
+  .ratio-grid{display:grid;grid-template-columns:minmax(0,1fr) auto minmax(0,1fr);gap:10px;align-items:end}
+  .field-label{display:block;margin-bottom:6px;font-size:10.5px;color:var(--ink-faint);letter-spacing:.05em}
+  .stepper{
+    display:grid;grid-template-columns:34px minmax(0,1fr) 34px;align-items:center;
+    height:54px;border:1px solid var(--rule-strong);background:rgba(244,239,226,.6);
+  }
+  .stepper button{
+    appearance:none;border:0;background:transparent;height:100%;padding:0;
+    color:var(--ink-soft);font:20px/1 var(--mono);cursor:pointer;transition:background .14s,color .14s;
+  }
+  .stepper button:hover{background:rgba(28,36,31,.06);color:var(--ink)}
+  .stepper input{
+    appearance:textfield;-moz-appearance:textfield;border:0;background:transparent;width:100%;min-width:0;padding:0;
+    text-align:center;color:var(--ink);font:600 27px/1 var(--mono);
+  }
+  .stepper input::-webkit-outer-spin-button,
+  .stepper input::-webkit-inner-spin-button{appearance:none;margin:0}
+  .stepper input:focus{outline:none}
+  .stepper:focus-within{border-color:var(--blue);box-shadow:0 0 0 1px var(--blue)}
+  .ratio-colon{font-family:var(--serif);font-size:26px;color:var(--ink-faint);padding-bottom:13px}
+  .ratio-hint{margin:9px 0 0;font-family:var(--mono);font-size:11px;color:var(--ink-faint);min-height:15px}
+
+  input[type="range"]{
+    appearance:none;-webkit-appearance:none;display:block;width:100%;height:26px;
+    margin:2px 0 0;background:transparent;cursor:pointer;
+  }
+  input[type="range"]::-webkit-slider-runnable-track{height:2px;background:rgba(28,36,31,.38)}
+  input[type="range"]::-moz-range-track{height:2px;background:rgba(28,36,31,.38)}
+  input[type="range"]::-webkit-slider-thumb{
+    -webkit-appearance:none;width:17px;height:17px;margin-top:-7.5px;border-radius:50%;
+    background:var(--pink);border:2px solid var(--paper-lift);box-shadow:0 0 0 1px var(--ink);
+  }
+  input[type="range"]::-moz-range-thumb{
+    width:15px;height:15px;border-radius:50%;background:var(--pink);
+    border:2px solid var(--paper-lift);box-shadow:0 0 0 1px var(--ink);
+  }
+  input[type="range"]:focus-visible{outline:2px solid var(--blue);outline-offset:4px}
+
+  .chips{display:flex;flex-wrap:wrap;gap:6px}
+  .chips.phase{margin-top:10px}
+  #ratioChips{display:grid;grid-template-columns:repeat(3,minmax(0,1fr))}
+  .chip{
+    appearance:none;border:1px solid var(--rule);background:transparent;color:var(--ink-soft);
+    padding:5px 9px;font:11px/1.4 var(--mono);cursor:pointer;letter-spacing:.02em;
+    transition:background .14s,color .14s,border-color .14s;
+  }
+  .chip:hover{border-color:var(--rule-strong);color:var(--ink)}
+  .chip[aria-pressed="true"]{background:var(--ink);border-color:var(--ink);color:var(--paper-lift)}
+
+  .switch{
+    display:flex;align-items:center;justify-content:space-between;gap:14px;
+    margin-top:8px;padding:9px 0 2px;cursor:pointer;font-size:12px;color:var(--ink-soft);
+  }
+  .switch input{position:absolute;opacity:0;width:1px;height:1px}
+  .switch .track{
+    position:relative;flex:0 0 auto;width:38px;height:21px;border:1px solid var(--rule-strong);
+    border-radius:20px;background:rgba(28,36,31,.04);transition:background .16s,border-color .16s;
+  }
+  .switch .track::after{
+    content:"";position:absolute;top:3px;left:3px;width:13px;height:13px;border-radius:50%;
+    background:var(--ink-soft);transition:transform .16s,background .16s;
+  }
+  .switch input:checked + .track{background:var(--ink);border-color:var(--ink)}
+  .switch input:checked + .track::after{transform:translateX(17px);background:var(--paper-lift)}
+  .switch input:focus-visible + .track{outline:2px solid var(--blue);outline-offset:3px}
+
+  .actions{display:grid;grid-template-columns:1fr 1fr;gap:9px;padding-top:18px}
+  .btn{
+    appearance:none;height:43px;border:1px solid var(--ink);background:transparent;color:var(--ink);
+    font:12.5px/1 var(--sans);letter-spacing:.06em;cursor:pointer;
+    transition:background .16s,color .16s;
+  }
+  .btn:hover{background:rgba(28,36,31,.06)}
+  .btn.primary{background:var(--ink);color:var(--paper-lift)}
+  .btn.primary:hover{background:#2C352F}
+  .btn:active{transform:translateY(1px)}
+
+  .console-note{
+    margin:16px 0 0;font-size:11px;line-height:1.8;color:var(--ink-faint);
+  }
+  .console-note kbd{
+    font-family:var(--mono);font-size:10px;border:1px solid var(--rule);
+    padding:1px 4px;color:var(--ink-soft);background:rgba(255,255,255,.16);
+  }
+
+  /* ---------- notes ---------- */
+  .notes{
+    grid-area:notes;display:grid;grid-template-columns:1fr 1fr;gap:40px;
+    width:100%;max-width:700px;margin:34px auto 0;padding-top:18px;
+    border-top:1px solid var(--rule-strong);
+  }
+  .notes h2{
+    margin:0 0 7px;font-size:11.5px;font-weight:600;letter-spacing:.08em;color:var(--ink);
+  }
+  .notes p{margin:0;font-size:12.5px;line-height:1.9;color:var(--ink-soft)}
+  .notes .math{font-family:var(--mono);font-size:11.5px;color:var(--ink)}
+
+  :focus-visible{outline:2px solid var(--blue);outline-offset:3px}
+  [hidden]{display:none !important}
+
+  @media (max-width:1080px){
+    .masthead{grid-template-columns:minmax(0,1fr) 290px;gap:40px}
+    .work{grid-template-columns:minmax(0,1fr) 340px;gap:32px}
+    .page{padding:30px 32px 56px}
+  }
+  @media (max-width:900px){
+    .masthead{grid-template-columns:1fr;gap:20px;align-items:start}
+    .masthead-note{max-width:36em}
+    .work{grid-template-columns:1fr;grid-template-areas:"figure" "console" "notes";gap:34px}
+    .figure{max-width:680px}
+    .stage{width:100%}
+    .notes{grid-template-columns:1fr;gap:24px;margin-top:0}
+  }
+  @media (max-width:560px){
+    .page{padding:22px 18px 44px}
+    h1{font-size:clamp(38px,12vw,54px)}
+    .masthead{padding-bottom:20px;margin-bottom:24px}
+    .lede{font-size:13.5px;line-height:1.8}
+    .masthead-note{font-size:11.5px}
+    .stage{width:100%}
+    .caption-top{align-items:flex-start}
+    .caption-meta{gap:8px}
+    .legend{gap:12px}
+    .group{padding:15px 0}
+    .value.big{font-size:26px}
+    .stepper{height:50px}
+    .stepper input{font-size:24px}
+  }
+  @media (prefers-reduced-motion:reduce){
+    *{scroll-behavior:auto !important}
+    .btn:active{transform:none}
+  }
+</style>
+</head>
+<body>
+<div class="page">
+
+  <header class="masthead">
+    <div>
+      <h1>李萨如图形</h1>
+      <p class="lede">一个点同时参与两个互相垂直的简谐振动：水平位置来自 x 方向，竖直位置来自 y 方向。两套节奏叠在一起，纸面上就留下了这条闭合曲线。</p>
+    </div>
+    <p class="masthead-note">拖动参数，形状会即时改写。先把相位差从 <b>0°</b> 推到 <b>90°</b>，再试试频率比 <b>1 : 2</b> 与 <b>2 : 3</b>。</p>
+  </header>
+
+  <main class="work">
+    <figure class="figure">
+      <div class="stage">
+        <canvas id="plot" role="img" aria-label="李萨如图形，频率比 2 比 3，初相位差 90 度"></canvas>
+        <div class="stage-tools">
+          <button class="icon-btn" id="playBtn" type="button" aria-label="暂停动画" title="暂停动画">
+            <svg id="iconPause" viewBox="0 0 24 24" aria-hidden="true"><path d="M7 5h3.6v14H7zM13.4 5H17v14h-3.6z"/></svg>
+            <svg id="iconPlay" viewBox="0 0 24 24" aria-hidden="true" hidden><path d="M8 5.2v13.6L19 12z"/></svg>
+          </button>
+        </div>
+      </div>
+
+      <figcaption class="caption">
+        <div class="caption-top">
+          <div class="equation" id="equation">
+            <span>x = sin(2π·<b id="eqN">2</b>t)</span>
+            <span>y = sin(2π·<b id="eqM">3</b>t + <b id="eqPhi">90°</b>)</span>
+          </div>
+          <div class="type-badge" id="typeBadge">椭圆</div>
+        </div>
+        <div class="caption-meta">
+          <div class="legend">
+            <span><i style="--c:var(--ink)"></i>合成轨迹</span>
+            <span><i style="--c:var(--blue)"></i>X 投影</span>
+            <span><i style="--c:var(--pink)"></i>Y 投影</span>
+          </div>
+          <div class="status" id="statusText">闭合曲线 · 每圈 6.0 秒</div>
+        </div>
+      </figcaption>
+    </figure>
+
+    <aside class="console" aria-label="参数控制">
+      <section class="group">
+        <div class="group-head">
+          <h2>频率比</h2>
+          <span class="hint">整数 1 – 8</span>
+        </div>
+        <div class="ratio-grid">
+          <div>
+            <label class="field-label" for="nInput">X 轴频率 n</label>
+            <div class="stepper">
+              <button type="button" data-step="n" data-dir="-1" aria-label="减小 X 轴频率 n">−</button>
+              <input id="nInput" type="number" inputmode="numeric" min="1" max="8" step="1" value="2" aria-label="X 轴频率 n">
+              <button type="button" data-step="n" data-dir="1" aria-label="增大 X 轴频率 n">+</button>
+            </div>
+          </div>
+          <span class="ratio-colon" aria-hidden="true">:</span>
+          <div>
+            <label class="field-label" for="mInput">Y 轴频率 m</label>
+            <div class="stepper">
+              <button type="button" data-step="m" data-dir="-1" aria-label="减小 Y 轴频率 m">−</button>
+              <input id="mInput" type="number" inputmode="numeric" min="1" max="8" step="1" value="3" aria-label="Y 轴频率 m">
+              <button type="button" data-step="m" data-dir="1" aria-label="增大 Y 轴频率 m">+</button>
+            </div>
+          </div>
+        </div>
+        <p class="ratio-hint" id="ratioHint">n : m = 2 : 3</p>
+      </section>
+
+      <section class="group">
+        <div class="group-head">
+          <h2>初相位差 Δφ</h2>
+          <span class="value big" id="phaseValue">90°</span>
+        </div>
+        <input id="phaseRange" type="range" min="0" max="360" step="1" value="90" aria-label="初相位差，单位度">
+        <div class="chips phase" id="phaseChips">
+          <button class="chip" type="button" data-phase="0" aria-pressed="false">0°</button>
+          <button class="chip" type="button" data-phase="45" aria-pressed="false">45°</button>
+          <button class="chip" type="button" data-phase="90" aria-pressed="true">90°</button>
+          <button class="chip" type="button" data-phase="135" aria-pressed="false">135°</button>
+          <button class="chip" type="button" data-phase="180" aria-pressed="false">180°</button>
+          <button class="chip" type="button" data-phase="270" aria-pressed="false">270°</button>
+        </div>
+      </section>
+
+      <section class="group">
+        <div class="group-head">
+          <h2>常用比例</h2>
+        </div>
+        <div class="chips" id="ratioChips">
+          <button class="chip" type="button" data-n="1" data-m="1" aria-pressed="false">1 : 1</button>
+          <button class="chip" type="button" data-n="1" data-m="2" aria-pressed="false">1 : 2</button>
+          <button class="chip" type="button" data-n="2" data-m="3" aria-pressed="true">2 : 3</button>
+          <button class="chip" type="button" data-n="3" data-m="4" aria-pressed="false">3 : 4</button>
+          <button class="chip" type="button" data-n="3" data-m="2" aria-pressed="false">3 : 2</button>
+          <button class="chip" type="button" data-n="5" data-m="4" aria-pressed="false">5 : 4</button>
+        </div>
+      </section>
+
+      <section class="group">
+        <div class="group-head">
+          <h2>动画</h2>
+          <span class="value" id="speedValue">1.0×</span>
+        </div>
+        <input id="speedRange" type="range" min="0.25" max="2" step="0.05" value="1" aria-label="动画速度">
+        <label class="switch">
+          <span>显示投影辅助线</span>
+          <input id="projToggle" type="checkbox" checked>
+          <span class="track" aria-hidden="true"></span>
+        </label>
+      </section>
+
+      <div class="actions">
+        <button class="btn" type="button" id="redrawBtn">重绘</button>
+        <button class="btn primary" type="button" id="saveBtn">导出 PNG</button>
+      </div>
+
+      <p class="console-note">取振幅 A = B = 1，横纵范围均为 −1 到 1。<kbd>Tab</kbd> 可逐个调整控件。</p>
+    </aside>
+
+    <div class="notes">
+      <div>
+        <h2>为什么曲线会闭合</h2>
+        <p>n 与 m 都取整数，所以在同一段时间里，两个分振动各自完成整数个周期，点必然回到出发点。频率之比越简单，曲线越简洁；越接近相等，图形越密。</p>
+      </div>
+      <div>
+        <h2>相位差改变了什么</h2>
+        <p>Δφ 只改变两个振动的步调差。当 n = m 时，0° 与 180° 得到直线，90° 与 270° 得到圆，其余角度是倾角不同的椭圆；n ≠ m 时，它决定曲线张开的方向与形状。</p>
+      </div>
+    </div>
+  </main>
+</div>
+
+<script>
+(function () {
+  "use strict";
+
+  const PAPER = "#F4EFE2";
+  const INK = "28,36,31";
+  const INK_SOLID = "#1C241F";
+  const BLUE = "#26418F";
+  const PINK = "#E15272";
+  const BASE_LOOP_SECONDS = 6;
+  const TWO_PI = Math.PI * 2;
+
+  const canvas = document.getElementById("plot");
+  const ctx = canvas.getContext("2d");
+
+  const el = (id) => document.getElementById(id);
+  const nInput = el("nInput");
+  const mInput = el("mInput");
+  const phaseRange = el("phaseRange");
+  const phaseValue = el("phaseValue");
+  const speedRange = el("speedRange");
+  const speedValue = el("speedValue");
+  const ratioHint = el("ratioHint");
+  const typeBadge = el("typeBadge");
+  const statusText = el("statusText");
+  const playBtn = el("playBtn");
+  const iconPlay = el("iconPlay");
+  const iconPause = el("iconPause");
+  const projToggle = el("projToggle");
+
+  const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+  const state = {
+    n: 2,
+    m: 3,
+    phi: 90,
+    speed: 1,
+    showProj: true,
+    playing: !reduceMotion,
+    tau: 0.34
+  };
+
+  let dpr = 1;
+  let rafId = null;
+  let lastTs = 0;
+  let curveCache = { key: "", points: [] };
+
+  const clamp = (v, min, max) => Math.min(max, Math.max(min, v));
+  const mod1 = (v) => ((v % 1) + 1) % 1;
+
+  function gcd(a, b) {
+    return b ? gcd(b, a % b) : a;
+  }
+
+  function fmtSpeed(v) {
+    const s = Number.isInteger(v * 10) ? v.toFixed(1) : v.toFixed(2);
+    return s + "×";
+  }
+
+  function figureType() {
+    if (state.n !== state.m) return "李萨如曲线";
+    const p = ((state.phi % 180) + 180) % 180;
+    if (p < 2 || p > 178) return "直线";
+    if (Math.abs(p - 90) < 2) return "圆";
+    return "椭圆";
+  }
+
+  function readHash() {
+    const raw = location.hash.replace(/^#/, "");
+    if (!raw) return;
+    const p = new URLSearchParams(raw);
+    if (p.has("n")) state.n = clamp(Math.round(Number(p.get("n")) || 2), 1, 8);
+    if (p.has("m")) state.m = clamp(Math.round(Number(p.get("m")) || 3), 1, 8);
+    if (p.has("phi")) {
+      const v = Number(p.get("phi"));
+      if (Number.isFinite(v)) state.phi = clamp(Math.round(v), 0, 360);
+    }
+    if (p.has("speed")) {
+      const v = Number(p.get("speed"));
+      if (Number.isFinite(v)) state.speed = clamp(Math.round(v * 20) / 20, 0.25, 2);
+    }
+  }
+
+  function writeHash() {
+    const raw = `n=${state.n}&m=${state.m}&phi=${state.phi}&speed=${state.speed}`;
+    if (location.hash.replace(/^#/, "") === raw) return;
+    history.replaceState(null, "", "#" + raw);
+  }
+
+  function syncUI() {
+    nInput.value = state.n;
+    mInput.value = state.m;
+    phaseRange.value = state.phi;
+    speedRange.value = state.speed;
+
+    phaseValue.textContent = state.phi + "°";
+    speedValue.textContent = fmtSpeed(state.speed);
+    phaseRange.setAttribute("aria-valuetext", state.phi + " 度");
+    speedRange.setAttribute("aria-valuetext", fmtSpeed(state.speed));
+
+    const g = gcd(state.n, state.m);
+    ratioHint.textContent = g > 1
+      ? `n : m = ${state.n} : ${state.m}（约分 ${state.n / g} : ${state.m / g}）`
+      : `n : m = ${state.n} : ${state.m}`;
+
+    el("eqN").textContent = state.n;
+    el("eqM").textContent = state.m;
+    el("eqPhi").textContent = state.phi + "°";
+    typeBadge.textContent = figureType();
+    statusText.textContent = `闭合曲线 · 每圈 ${(BASE_LOOP_SECONDS / state.speed).toFixed(1)} 秒`;
+
+    document.querySelectorAll("#phaseChips .chip").forEach((b) => {
+      b.setAttribute("aria-pressed", String(Number(b.dataset.phase) === state.phi));
+    });
+    document.querySelectorAll("#ratioChips .chip").forEach((b) => {
+      const active = Number(b.dataset.n) === state.n && Number(b.dataset.m) === state.m;
+      b.setAttribute("aria-pressed", String(active));
+    });
+
+    canvas.setAttribute(
+      "aria-label",
+      `李萨如图形，频率比 ${state.n} 比 ${state.m}，初相位差 ${state.phi} 度，形状为${figureType()}`
+    );
+
+    updatePlayButton();
+    writeHash();
+    if (!state.playing) draw();
+  }
+
+  function updatePlayButton() {
+    playBtn.setAttribute("aria-label", state.playing ? "暂停动画" : "播放动画");
+    playBtn.title = state.playing ? "暂停动画" : "播放动画";
+    iconPause.hidden = !state.playing;
+    iconPlay.hidden = state.playing;
+  }
+
+  function getCurve() {
+    const key = `${state.n}:${state.m}:${state.phi}`;
+    if (curveCache.key === key) return curveCache.points;
+
+    const N = 2400;
+    const phi = state.phi * Math.PI / 180;
+    const pts = new Array(N + 1);
+    for (let i = 0; i <= N; i++) {
+      const t = i / N;
+      pts[i] = [
+        Math.sin(TWO_PI * state.n * t),
+        Math.sin(TWO_PI * state.m * t + phi)
+      ];
+    }
+    curveCache = { key, points: pts };
+    return pts;
+  }
+
+  function gridAndAxes(g, cx, cy, R, scale, exportMode) {
+    const unit = scale;
+    const step = unit * 0.25;
+    g.save();
+    g.beginPath();
+    g.rect(cx - R, cy - R, R * 2, R * 2);
+    g.clip();
+
+    g.lineWidth = 1;
+    g.strokeStyle = `rgba(${INK},${exportMode ? 0.1 : 0.062})`;
+    g.beginPath();
+    for (let d = -R; d <= R + 0.5; d += step) {
+      g.moveTo(cx + d, cy - R);
+      g.lineTo(cx + d, cy + R);
+      g.moveTo(cx - R, cy + d);
+      g.lineTo(cx + R, cy + d);
+    }
+    g.stroke();
+
+    g.strokeStyle = `rgba(${INK},${exportMode ? 0.17 : 0.11})`;
+    g.beginPath();
+    for (let k = -8; k <= 8; k++) {
+      const d = k * unit * 0.5;
+      if (Math.abs(d) > R) continue;
+      g.moveTo(cx + d, cy - R);
+      g.lineTo(cx + d, cy + R);
+      g.moveTo(cx - R, cy + d);
+      g.lineTo(cx + R, cy + d);
+    }
+    g.stroke();
+    g.restore();
+
+    g.strokeStyle = `rgba(${INK},${exportMode ? 0.28 : 0.2})`;
+    g.lineWidth = 1;
+    g.strokeRect(cx - R + 0.5, cy - R + 0.5, R * 2 - 1, R * 2 - 1);
+
+    g.strokeStyle = `rgba(${INK},0.32)`;
+    g.lineWidth = 1.2;
+    g.beginPath();
+    g.moveTo(cx - R, cy);
+    g.lineTo(cx + R, cy);
+    g.moveTo(cx, cy - R);
+    g.lineTo(cx, cy + R);
+    g.stroke();
+
+    const fs = Math.max(10, Math.round(R * 0.033));
+    const tick = unit * 1.045;
+    g.font = `${fs}px "Cascadia Mono","Consolas",monospace`;
+    g.fillStyle = `rgba(${INK},0.48)`;
+    g.textAlign = "center";
+    g.textBaseline = "top";
+    g.fillText("−1", cx - tick, cy + fs * 0.55);
+    g.fillText("1", cx + tick, cy + fs * 0.55);
+    g.textAlign = "right";
+    g.textBaseline = "middle";
+    g.fillText("1", cx - fs * 0.6, cy - tick);
+    g.fillText("−1", cx - fs * 0.6, cy + tick);
+
+    const ls = Math.max(12, Math.round(R * 0.043));
+    g.font = `600 ${ls}px "Source Han Serif SC","Songti SC",serif`;
+    g.fillStyle = `rgba(${INK},0.6)`;
+    g.textAlign = "center";
+    g.textBaseline = "middle";
+    g.fillText("x", cx + R + ls * 1.15, cy + 1);
+    g.fillText("y", cx, cy - R - ls * 0.95);
+  }
+
+  function pathFromPoints(g, pts, cx, cy, scale) {
+    g.beginPath();
+    for (let i = 0; i < pts.length; i++) {
+      const x = cx + pts[i][0] * scale;
+      const y = cy - pts[i][1] * scale;
+      if (i === 0) g.moveTo(x, y);
+      else g.lineTo(x, y);
+    }
+    g.closePath();
+  }
+
+  function pointAt(t, cx, cy, scale, phi) {
+    const a = TWO_PI * state.n * t;
+    const b = TWO_PI * state.m * t + phi;
+    return [cx + Math.sin(a) * scale, cy - Math.sin(b) * scale];
+  }
+
+  function paint(g, w, h, opts) {
+    const exportMode = !!opts.exportMode;
+    g.fillStyle = PAPER;
+    g.fillRect(0, 0, w, h);
+
+    const cx = opts.cx ?? w / 2;
+    const cy = opts.cy ?? h / 2;
+    const R = opts.R ?? (Math.min(w, h) - Math.max(22, Math.min(w, h) * 0.09) * 2) / 2;
+    const scale = R / 1.08;
+    const phi = state.phi * Math.PI / 180;
+    const pts = getCurve();
+
+    gridAndAxes(g, cx, cy, R, scale, exportMode);
+
+    g.lineJoin = "round";
+    g.lineCap = "round";
+
+    // 洋红套印偏移，模拟双色印刷的轻微错位
+    g.save();
+    g.translate(scale * 0.005, -scale * 0.005);
+    pathFromPoints(g, pts, cx, cy, scale);
+    g.strokeStyle = `rgba(225,82,114,${exportMode ? 0.3 : 0.24})`;
+    g.lineWidth = exportMode ? 4.6 : 2.0;
+    g.stroke();
+    g.restore();
+
+    // 完整轨迹
+    pathFromPoints(g, pts, cx, cy, scale);
+    g.strokeStyle = `rgba(${INK},${exportMode ? 0.9 : 0.74})`;
+    g.lineWidth = exportMode ? 4 : 2.1;
+    g.stroke();
+
+    const tau = state.tau;
+
+    if (opts.tail) {
+      const TAIL = 0.14;
+      const STEPS = 70;
+      for (let i = 0; i < STEPS; i++) {
+        const u0 = i / STEPS;
+        const u1 = (i + 1) / STEPS;
+        const t0 = mod1(tau - TAIL * (1 - u0));
+        const t1 = mod1(tau - TAIL * (1 - u1));
+        const p0 = pointAt(t0, cx, cy, scale, phi);
+        const p1 = pointAt(t1, cx, cy, scale, phi);
+        const k = (i + 1) / STEPS;
+        g.beginPath();
+        g.moveTo(p0[0], p0[1]);
+        g.lineTo(p1[0], p1[1]);
+        g.strokeStyle = `rgba(${INK},${0.1 + 0.85 * k * k})`;
+        g.lineWidth = (exportMode ? 2.6 : 1.4) + k * (exportMode ? 1.4 : 2.6);
+        g.stroke();
+      }
+    }
+
+    const head = pointAt(tau, cx, cy, scale, phi);
+
+    if (opts.proj) {
+      g.save();
+      g.setLineDash([4, 5]);
+      g.lineWidth = 1;
+      g.strokeStyle = "rgba(38,65,143,.5)";
+      g.beginPath();
+      g.moveTo(head[0], head[1]);
+      g.lineTo(head[0], cy);
+      g.stroke();
+      g.strokeStyle = "rgba(225,82,114,.58)";
+      g.beginPath();
+      g.moveTo(head[0], head[1]);
+      g.lineTo(cx, head[1]);
+      g.stroke();
+      g.restore();
+
+      g.fillStyle = BLUE;
+      g.beginPath();
+      g.arc(head[0], cy, exportMode ? 6 : 4.2, 0, TWO_PI);
+      g.fill();
+      g.strokeStyle = PAPER;
+      g.lineWidth = 1.5;
+      g.stroke();
+
+      g.fillStyle = PINK;
+      g.beginPath();
+      g.arc(cx, head[1], exportMode ? 6 : 4.2, 0, TWO_PI);
+      g.fill();
+      g.strokeStyle = PAPER;
+      g.stroke();
+    }
+
+    if (opts.head) {
+      const r = exportMode ? 12 : 8;
+      g.fillStyle = "rgba(225,82,114,.18)";
+      g.beginPath();
+      g.arc(head[0], head[1], r * 1.9, 0, TWO_PI);
+      g.fill();
+      g.fillStyle = PINK;
+      g.beginPath();
+      g.arc(head[0], head[1], r, 0, TWO_PI);
+      g.fill();
+      g.strokeStyle = PAPER;
+      g.lineWidth = exportMode ? 3 : 2;
+      g.stroke();
+      g.strokeStyle = "rgba(28,36,31,.5)";
+      g.lineWidth = 1;
+      g.stroke();
+    }
+  }
+
+  function resize() {
+    const rect = canvas.getBoundingClientRect();
+    if (!rect.width || !rect.height) return;
+    dpr = Math.min(window.devicePixelRatio || 1, 2);
+    canvas.width = Math.round(rect.width * dpr);
+    canvas.height = Math.round(rect.height * dpr);
+    draw();
+  }
+
+  function draw() {
+    const w = canvas.clientWidth;
+    const h = canvas.clientHeight;
+    if (!w || !h) return;
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    ctx.clearRect(0, 0, w, h);
+    paint(ctx, w, h, {
+      tail: true,
+      head: true,
+      proj: state.showProj
+    });
+  }
+
+  function tick(ts) {
+    if (!lastTs) lastTs = ts;
+    const dt = Math.min(ts - lastTs, 100);
+    lastTs = ts;
+    state.tau = mod1(state.tau + (dt / 1000) * state.speed / BASE_LOOP_SECONDS);
+    draw();
+    rafId = requestAnimationFrame(tick);
+  }
+
+  function startLoop() {
+    if (rafId !== null) return;
+    lastTs = 0;
+    rafId = requestAnimationFrame(tick);
+  }
+
+  function stopLoop() {
+    if (rafId !== null) {
+      cancelAnimationFrame(rafId);
+      rafId = null;
+    }
+    draw();
+  }
+
+  function setPlaying(next) {
+    state.playing = next;
+    updatePlayButton();
+    if (next) startLoop();
+    else stopLoop();
+  }
+
+  function exportPNG() {
+    const W = 1600;
+    const H = 1760;
+    const off = document.createElement("canvas");
+    off.width = W;
+    off.height = H;
+    const g = off.getContext("2d");
+
+    const R = 690;
+    paint(g, W, H, {
+      cx: W / 2,
+      cy: 110 + R,
+      R,
+      exportMode: true,
+      head: true,
+      tail: false,
+      proj: false
+    });
+
+    g.strokeStyle = `rgba(${INK},0.22)`;
+    g.lineWidth = 1;
+    g.beginPath();
+    g.moveTo(110, 1552);
+    g.lineTo(W - 110, 1552);
+    g.stroke();
+
+    g.fillStyle = INK_SOLID;
+    g.font = '600 46px "Source Han Serif SC","Songti SC",serif';
+    g.textAlign = "left";
+    g.textBaseline = "alphabetic";
+    g.fillText("李萨如图形", 110, 1614);
+
+    g.fillStyle = "rgba(28,36,31,.62)";
+    g.font = '25px "Cascadia Mono","Consolas",monospace';
+    g.textAlign = "right";
+    g.fillText(`n : m = ${state.n} : ${state.m}　Δφ = ${state.phi}°`, W - 110, 1614);
+
+    g.fillStyle = "rgba(28,36,31,.48)";
+    g.font = '22px "Cascadia Mono","Consolas",monospace';
+    g.textAlign = "left";
+    g.fillText(`x = sin(2π·${state.n}·t)`, 110, 1672);
+    g.textAlign = "right";
+    g.fillText(`y = sin(2π·${state.m}·t + ${state.phi}°)`, W - 110, 1672);
+
+    const a = document.createElement("a");
+    a.download = `lissajous-${state.n}-${state.m}-${state.phi}deg.png`;
+    a.href = off.toDataURL("image/png");
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+  }
+
+  // ---------- events ----------
+  document.querySelectorAll("[data-step]").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      const key = btn.dataset.step;
+      state[key] = clamp(state[key] + Number(btn.dataset.dir), 1, 8);
+      syncUI();
+    });
+  });
+
+  [["nInput", "n"], ["mInput", "m"]].forEach(([id, key]) => {
+    const input = el(id);
+    input.addEventListener("input", () => {
+      const v = parseInt(input.value, 10);
+      if (!Number.isFinite(v)) return;
+      state[key] = clamp(Math.round(v), 1, 8);
+      syncUI();
+    });
+    input.addEventListener("blur", () => {
+      input.value = state[key];
+    });
+  });
+
+  phaseRange.addEventListener("input", () => {
+    state.phi = clamp(Number(phaseRange.value), 0, 360);
+    syncUI();
+  });
+
+  speedRange.addEventListener("input", () => {
+    state.speed = clamp(Number(speedRange.value), 0.25, 2);
+    syncUI();
+  });
+
+  projToggle.addEventListener("change", () => {
+    state.showProj = projToggle.checked;
+    if (!state.playing) draw();
+  });
+
+  document.querySelectorAll("#phaseChips .chip").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      state.phi = Number(btn.dataset.phase);
+      syncUI();
+    });
+  });
+
+  document.querySelectorAll("#ratioChips .chip").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      state.n = Number(btn.dataset.n);
+      state.m = Number(btn.dataset.m);
+      syncUI();
+    });
+  });
+
+  playBtn.addEventListener("click", () => setPlaying(!state.playing));
+
+  el("redrawBtn").addEventListener("click", () => {
+    state.tau = 0;
+    if (state.playing) {
+      lastTs = 0;
+    }
+    draw();
+  });
+
+  el("saveBtn").addEventListener("click", exportPNG);
+
+  window.addEventListener("hashchange", () => {
+    readHash();
+    syncUI();
+  });
+
+  document.addEventListener("visibilitychange", () => {
+    if (document.hidden) {
+      if (rafId !== null) {
+        cancelAnimationFrame(rafId);
+        rafId = null;
+      }
+    } else if (state.playing && rafId === null) {
+      startLoop();
+    }
+  });
+
+  // ---------- boot ----------
+  readHash();
+  projToggle.checked = state.showProj;
+  syncUI();
+  new ResizeObserver(resize).observe(canvas);
+  resize();
+  if (state.playing) startLoop();
+})();
+</script>
+</body>
+</html>
